@@ -8,6 +8,8 @@ The baseline rule is simple: when ordinary C syntax and semantics can be reused 
 
 This document initially records the C-compatible surface. Bitlang compiled-specific restrictions and extensions are added explicitly as they are decided.
 
+A foundational exception is the numeric type system: Bitlang compiled inherits Bitlang's canonical radix-and-bit-width type model instead of C's target-dependent primitive integer model. See [`numeric-types.md`](numeric-types.md).
+
 ## 1. Translation unit
 
 A Bitlang compiled source file is a translation unit containing declarations and definitions in a C-like form.
@@ -49,21 +51,48 @@ The exact identifier normalization and case rules for Bitlang compiled remain a 
 
 ## 4. Variables
 
-C-style variable declaration syntax is used where applicable.
+Variable declarations use a C-like declaration shape, but canonical Bitlang types are retained.
 
 ```c
-int value;
-int count = 0;
-float ratio = 1.0;
+Int10x32 value;
+Int10x32 count = 0;
+Float10x32 ratio = 1.0;
 ```
 
 Multiple declarations may use the same general C form where doing so does not introduce ambiguity.
 
 ```c
-int a, b, c;
+Int10x32 a, b, c;
 ```
 
 Compiler output may choose to emit one declaration per variable for simpler analysis and rewriting.
+
+### 4.1 Canonical numeric types
+
+Numeric type representation is inherited from Bitlang.
+
+For types carrying both radix and bit width, the canonical form is:
+
+```text
+<TypeName><Radix>x<BitWidth>
+```
+
+Examples:
+
+```text
+Int10x32
+Uint10x32
+Int2x32
+Int16x64
+```
+
+The bit width, signedness, and radix are explicit type information. Bitlang compiled must not replace them with target-dependent C types such as plain `int` or `long`.
+
+Source shorthand has already been resolved before compiler-generated Bitlang compiled is produced. Therefore source-level `int` becomes the canonical Bitlang type, normally `Int10x32`, before this stage.
+
+Different radix types are distinct. No C integer promotions or usual arithmetic conversions are inherited. Widening, narrowing, signedness changes, and radix changes must be explicit.
+
+Numeric overflow is an error by default unless an explicit operation specifies another overflow policy.
 
 ## 5. Assignment
 
@@ -99,7 +128,9 @@ Bitwise and logical operators are also written in the C form:
 << >>
 ```
 
-Exact type-conversion, overflow, shift, and evaluation rules are Bitlang compiled-specific semantics and will be defined explicitly rather than inheriting every C undefined or implementation-defined behavior.
+Operand types must already satisfy Bitlang's explicit compatibility rules. C's implicit integer promotions and target-dependent conversion rules do not apply.
+
+Shift details and expression evaluation order remain Bitlang compiled-specific semantics and will be defined explicitly rather than inherited accidentally from C.
 
 ## 7. Increment and decrement
 
@@ -116,10 +147,10 @@ The compiler may normalize these into ordinary arithmetic assignments during low
 
 ## 8. Functions
 
-Functions use a C-like declaration and definition form.
+Functions use a C-like declaration and definition form while retaining canonical Bitlang types.
 
 ```c
-int add(int a, int b) {
+Int10x32 add(Int10x32 a, Int10x32 b) {
     return a + b;
 }
 ```
@@ -131,16 +162,16 @@ void reset(void) {
 }
 ```
 
-Function prototypes use the C form:
+Function prototypes use the same form:
 
 ```c
-int add(int a, int b);
+Int10x32 add(Int10x32 a, Int10x32 b);
 ```
 
 High-level concepts such as methods are expected to be lowered before or while producing Bitlang compiled. For example, an instance method may become an ordinary function with an explicit object pointer.
 
 ```c
-void Player_damage(struct Player* self, int amount);
+void Player_damage(struct Player* self, Int10x32 amount);
 ```
 
 ## 9. Return
@@ -214,7 +245,7 @@ do {
 ### for
 
 ```c
-for (int i = 0; i < count; i++) {
+for (Int10x32 i = 0; i < count; i++) {
     work(i);
 }
 ```
@@ -236,8 +267,8 @@ C-style structures are retained as a first-class low-level facility.
 
 ```c
 struct Player {
-    int hp;
-    int mp;
+    Int10x32 hp;
+    Int10x32 mp;
 };
 ```
 
@@ -269,7 +300,7 @@ The exact underlying representation and whether it must always be explicit will 
 C-like fixed-size array syntax is used.
 
 ```c
-int values[16];
+Int10x32 values[16];
 ```
 
 Indexing uses square brackets:
@@ -281,7 +312,7 @@ values[index]
 Multi-dimensional C-like syntax may be represented directly:
 
 ```c
-int matrix[4][4];
+Int10x32 matrix[4][4];
 ```
 
 Bounds semantics are not assumed to be identical to C and will be specified explicitly.
@@ -291,7 +322,7 @@ Bounds semantics are not assumed to be identical to C and will be specified expl
 Pointer syntax follows C where pointers are allowed.
 
 ```c
-int* ptr;
+Int10x32* ptr;
 struct Player* player;
 ```
 
@@ -309,7 +340,7 @@ Pointer arithmetic, lifetime rules, invalid pointer behavior, aliasing, and othe
 Function pointer representation may use C-compatible syntax where required for direct C translation.
 
 ```c
-int (*operation)(int, int);
+Int10x32 (*operation)(Int10x32, Int10x32);
 ```
 
 The precise allowed forms will be restricted as necessary to keep parsing, analysis, and backend translation deterministic.
@@ -319,7 +350,7 @@ The precise allowed forms will be restricted as necessary to keep parsing, analy
 A C-compatible `typedef` form may be used for low-level aliases.
 
 ```c
-typedef unsigned int uint;
+typedef Uint10x32 CounterType;
 ```
 
 Bitlang compiled may later place stricter limits on aliases to ensure that the resolved underlying type remains easy to inspect.
@@ -329,9 +360,9 @@ Bitlang compiled may later place stricter limits on aliases to ensure that the r
 `const` uses C-like placement and syntax where appropriate.
 
 ```c
-const int value = 10;
-const int* ptr;
-int* const ptr2 = other;
+const Int10x32 value = 10;
+const Int10x32* ptr;
+Int10x32* const ptr2 = other;
 ```
 
 Exact mutability semantics are defined by Bitlang compiled, not merely delegated to a C compiler.
@@ -341,7 +372,7 @@ Exact mutability semantics are defined by Bitlang compiled, not merely delegated
 C-style `static` syntax is available as a baseline representation for internal storage duration or linkage concepts.
 
 ```c
-static int counter;
+static Int10x32 counter;
 static void helper(void) {
 }
 ```
@@ -350,20 +381,22 @@ The complete linkage model will be specified separately.
 
 ## 22. Explicit casts
 
-C-style explicit cast syntax is used as the baseline:
+C-style explicit cast syntax is used as the baseline representation for a resolved cast operation:
 
 ```c
-int value = (int)ratio;
+Int10x32 value = (Int10x32)ratio;
 ```
 
-Bitlang compiled is expected to be stricter than C regarding which casts are legal. High-level implicit conversions should normally already be resolved before this stage.
+The legality and failure behavior of a cast follow Bitlang's explicit conversion rules rather than C's permissive conversion model.
+
+No ordinary implicit conversion is performed merely to make an operation type-compatible.
 
 ## 23. sizeof
 
 A C-compatible `sizeof` form is retained where useful for low-level representation and C translation.
 
 ```c
-sizeof(int)
+sizeof(Int10x32)
 sizeof(value)
 ```
 
@@ -383,25 +416,25 @@ may be represented in Bitlang compiled approximately as:
 
 ```c
 struct Player {
-    int hp;
+    Int10x32 hp;
 };
 
-void Player_damage(struct Player* self, int amount) {
+void Player_damage(struct Player* self, Int10x32 amount) {
     self->hp -= amount;
 }
 ```
+
+The C backend then maps canonical Bitlang numeric types to C representations that preserve their bit width and required semantics.
 
 The exact compiler-generated identifier names are an implementation concern and need not be optimized for human readability.
 
 ## 25. Intentionally unresolved C differences
 
-The following areas must be specified by Bitlang compiled itself and must not simply inherit C behavior by accident:
+The following areas must still be specified by Bitlang compiled itself and must not simply inherit C behavior by accident:
 
-- primitive type sizes and signedness,
-- integer overflow,
-- floating-point guarantees,
-- implicit conversions and promotions,
+- exact floating-point guarantees and backend representation,
 - expression evaluation order,
+- shift edge cases,
 - pointer arithmetic,
 - pointer lifetime and ownership,
 - aliasing,
@@ -410,7 +443,7 @@ The following areas must be specified by Bitlang compiled itself and must not si
 - struct layout and alignment,
 - enum representation,
 - linkage and symbol visibility,
-- undefined and implementation-defined behavior,
+- undefined and implementation-defined behavior outside already-defined Bitlang semantics,
 - volatile semantics,
 - atomic operations and concurrency,
 - preprocessor availability,
@@ -419,6 +452,7 @@ The following areas must be specified by Bitlang compiled itself and must not si
 - variable length arrays,
 - `goto`,
 - variadic functions,
-- C ABI interoperability.
+- C ABI interoperability,
+- canonical numeric type lowering where radix or overflow semantics require more than a primitive C type.
 
 Until these areas are explicitly defined, similarity to C syntax does not imply identical C semantics.
