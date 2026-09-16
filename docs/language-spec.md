@@ -8,7 +8,7 @@ The baseline rule is simple: when ordinary C syntax and semantics can be reused 
 
 This document initially records the C-compatible surface. Bitlang compiled-specific restrictions and extensions are added explicitly as they are decided.
 
-A foundational exception is the numeric type system: Bitlang compiled inherits Bitlang's canonical radix-and-bit-width type model instead of C's target-dependent primitive integer model. See [`numeric-types.md`](numeric-types.md).
+A foundational exception is the numeric type system: Bitlang compiled inherits Bitlang's canonical numeric type model, including integer and floating-point types, instead of redefining numeric semantics around C primitive types. See [`numeric-types.md`](numeric-types.md).
 
 ## 1. Translation unit
 
@@ -69,9 +69,9 @@ Compiler output may choose to emit one declaration per variable for simpler anal
 
 ### 4.1 Canonical numeric types
 
-Numeric type representation is inherited from Bitlang.
+Numeric type representation is inherited from Bitlang rather than redefined by Bitlang compiled.
 
-For types carrying both radix and bit width, the canonical form is:
+For numeric types carrying both radix and bit width, the canonical form is:
 
 ```text
 <TypeName><Radix>x<BitWidth>
@@ -84,15 +84,21 @@ Int10x32
 Uint10x32
 Int2x32
 Int16x64
+Float10x32
+Float10x64
 ```
 
-The bit width, signedness, and radix are explicit type information. Bitlang compiled must not replace them with target-dependent C types such as plain `int` or `long`.
+The bit width and radix are explicit type information. Signedness is explicit for integer families. Bitlang compiled must not replace this information with target-dependent C types such as plain `int`, `long`, `float`, or `double`.
 
-Source shorthand has already been resolved before compiler-generated Bitlang compiled is produced. Therefore source-level `int` becomes the canonical Bitlang type, normally `Int10x32`, before this stage.
+Source shorthand has already been resolved before compiler-generated Bitlang compiled is produced. Therefore source-level shorthand such as `int` is represented by its canonical Bitlang type, normally `Int10x32`, before this stage.
 
-Different radix types are distinct. No C integer promotions or usual arithmetic conversions are inherited. Widening, narrowing, signedness changes, and radix changes must be explicit.
+Different radix types are distinct. No C integer promotions, usual arithmetic conversions, or ordinary implicit numeric conversions are inherited. Widening, narrowing, signedness changes, radix changes, and integer/floating-point conversions must be explicit.
 
-Numeric overflow is an error by default unless an explicit operation specifies another overflow policy.
+Bitlang's distinction between cast and pulse remains valid in Bitlang compiled. The compiled representation preserves the already-resolved conversion operation rather than asking a C backend to infer one.
+
+Numeric overflow behavior is inherited from Bitlang and is an error by default unless an explicit operation specifies another policy.
+
+Floating-point types follow the same inheritance rule as integer types. Their canonical Bitlang type and already-defined semantics are preserved through Bitlang compiled; `float`, `double`, and related C types are backend representation choices only.
 
 ## 5. Assignment
 
@@ -391,6 +397,8 @@ The legality and failure behavior of a cast follow Bitlang's explicit conversion
 
 No ordinary implicit conversion is performed merely to make an operation type-compatible.
 
+Representation-changing pulse operations remain semantically distinct from casts even if a backend eventually implements both through generated conversion code.
+
 ## 23. sizeof
 
 A C-compatible `sizeof` form is retained where useful for low-level representation and C translation.
@@ -432,7 +440,7 @@ The exact compiler-generated identifier names are an implementation concern and 
 
 The following areas must still be specified by Bitlang compiled itself and must not simply inherit C behavior by accident:
 
-- exact floating-point guarantees and backend representation,
+- backend representation of canonical floating-point types where a C primitive is insufficient,
 - expression evaluation order,
 - shift edge cases,
 - pointer arithmetic,
@@ -453,6 +461,6 @@ The following areas must still be specified by Bitlang compiled itself and must 
 - `goto`,
 - variadic functions,
 - C ABI interoperability,
-- canonical numeric type lowering where radix or overflow semantics require more than a primitive C type.
+- canonical numeric type lowering where radix, overflow, precision, or other Bitlang semantics require more than a primitive C type.
 
 Until these areas are explicitly defined, similarity to C syntax does not imply identical C semantics.
