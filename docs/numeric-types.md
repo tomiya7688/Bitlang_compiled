@@ -143,18 +143,35 @@ Bitlang compiled must not silently adopt C signed-overflow behavior, unsigned wr
 
 If a distinct operation explicitly requests wrapping or another overflow policy, that operation must remain explicit through lowering.
 
-## C backend lowering
+## Unified C backend lowering rule
 
-The C backend is responsible for translating canonical Bitlang compiled numeric types into C representations that preserve the required width and semantics.
+Integer and floating-point types follow the same backend principle.
 
-A backend may use fixed-width C integer types, C floating-point types, generated helper types, runtime checks, helper operations, or another defined representation as required.
+Bitlang compiled keeps the canonical Bitlang type unchanged. The C backend then chooses a physical C representation that preserves that type's semantics.
 
-The backend mapping is not allowed to redefine the source type according to whatever width or semantics a C implementation happens to assign to its primitive types.
+The backend should use a native C representation when the target provides one that is semantically compatible with the Bitlang type. Otherwise it must use a wider carrier, generated helper type, software representation, runtime/helper operation, or another defined lowering strategy.
 
-Where radix, overflow, precision, or other Bitlang semantics require more than a C primitive type can express directly, the backend must preserve those semantics through the lowering strategy.
+This rule is intentionally common to all numeric families.
+
+Examples of valid lowering strategies include:
+
+```text
+canonical Bitlang numeric type
+    -> equivalent native C type, when one exists
+    -> wider native carrier plus required checks, when sufficient
+    -> generated/helper representation, when native C cannot preserve the semantics directly
+```
+
+The canonical Bitlang width is a semantic width. It does not have to equal the physical width of the C storage carrier.
+
+Likewise, a C floating-point primitive may only be used when it satisfies the semantics required by the corresponding Bitlang floating-point type. If it does not, the backend must use another representation rather than silently changing the Bitlang type.
+
+C bit-fields are not the general representation mechanism for Bitlang numeric types. They may be used only where an explicitly defined packed or layout-oriented lowering requires them.
+
+The backend mapping is not allowed to redefine a Bitlang type according to whatever width, precision, range, signedness, or behavior a particular C implementation happens to assign to its primitive types.
 
 ## Core rule
 
 Bitlang compiled is C-like in syntax and low-level structure, but **numeric types and numeric semantics remain Bitlang-native**.
 
-This applies to both integer and floating-point numeric types and is a foundational language rule rather than an optional backend convention.
+This applies uniformly to integer and floating-point numeric types and is a foundational language rule rather than an optional backend convention.
