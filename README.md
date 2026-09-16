@@ -28,4 +28,8 @@ Where a C language construct can be adopted without conflicting with Bitlang com
 
 Differences from C are specified explicitly rather than inventing alternative syntax unnecessarily.
 
+A major intentional exception is the numeric type system. Bitlang compiled retains Bitlang's canonical radix-and-bit-width type representation, such as `Int10x32` and `Uint10x64`, rather than reverting to target-dependent C primitive widths.
+
 See [`docs/language-spec.md`](docs/language-spec.md) for the current language specification.
+
+See [`docs/numeric-types.md`](docs/numeric-types.md) for the Bitlang-native numeric type rules inherited by Bitlang compiled.
