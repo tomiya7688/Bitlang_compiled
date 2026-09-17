@@ -28,8 +28,14 @@ Where a C language construct can be adopted without conflicting with Bitlang com
 
 Differences from C are specified explicitly rather than inventing alternative syntax unnecessarily.
 
+Bitlang-native semantics are not weakened merely to fit a C primitive or C undefined/implementation-defined behavior. When direct C representation is insufficient, the backend must use explicit lowering, checks, helpers, carrier representations, or another defined mechanism.
+
 A major intentional exception is the numeric type system. Bitlang compiled retains Bitlang's canonical radix-and-bit-width type representation, such as `Int10x32` and `Uint10x64`, rather than reverting to target-dependent C primitive widths.
 
-See [`docs/language-spec.md`](docs/language-spec.md) for the current language specification.
+## Specification
 
-See [`docs/numeric-types.md`](docs/numeric-types.md) for the Bitlang-native numeric type rules inherited by Bitlang compiled.
+- [`docs/language-spec.md`](docs/language-spec.md) — main language specification and C-like surface
+- [`docs/numeric-types.md`](docs/numeric-types.md) — Bitlang-native numeric type semantics and C lowering rules
+- [`docs/semantic-lowering.md`](docs/semantic-lowering.md) — Bitlang-specific property, ownership, lifetime, reference, class/module, and functional lowering rules
+- [`docs/borrow-state-lowering.md`](docs/borrow-state-lowering.md) — borrow-state lowering requirements
+- [`docs/open-decisions.md`](docs/open-decisions.md) — remaining decisions that cannot simply inherit C behavior
