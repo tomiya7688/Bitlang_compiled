@@ -413,16 +413,28 @@ No ordinary implicit conversion is performed merely to make an operation type-co
 
 Representation-changing pulse operations remain semantically distinct from casts even if a backend eventually implements both through generated conversion code.
 
-## 23. sizeof
+## 23. sizeof / bitsizeof / alignment
 
-A C-compatible `sizeof` form may be retained syntactically:
+Bitlang compiled separates semantic bit width from backend storage size.
 
-```c
-sizeof(Int10x32)
-sizeof(value)
+`sizeof(type-or-value)` reports the physical storage size in bytes for the selected compiled target/backend representation. It is therefore suitable for C-compatible layout, allocation, pointer stepping, ABI work, and other operations that depend on actual storage.
+
+`bitsizeof(type-or-value)` reports the semantic Bitlang bit width when the type has a defined semantic bit width.
+
+For example, a semantic `Int10x24` may use a 32-bit C carrier:
+
+```text
+bitsizeof(Int10x24) == 24
+sizeof(Int10x24)    == 4   // when the selected backend stores it in a 32-bit carrier
 ```
 
-However, Bitlang semantic bit width may differ from backend storage/carrier width. Therefore the exact meaning of `sizeof` for types such as `Int10x24`, and its relationship to backend storage size and alignment, remains a Bitlang-specific decision. See [`open-decisions.md`](open-decisions.md).
+The two sizes are intentionally allowed to differ.
+
+The programmer or generated compiled code may use whichever measurement is appropriate to the operation. Backend lowering must not substitute one for the other.
+
+Alignment is a storage/layout property rather than a semantic numeric-width property. Any `alignof`-equivalent operation therefore reports the alignment of the selected compiled target representation.
+
+For types that do not define a meaningful semantic bit width, `bitsizeof` is invalid unless that type's own Bitlang specification defines what semantic bit size means.
 
 ## 24. C-compatible lowering principle
 
@@ -486,7 +498,6 @@ Module/class ownership needed for symbol identity is encoded into generated name
 
 The remaining decisions that cannot simply inherit C behavior are tracked in [`open-decisions.md`](open-decisions.md). The major unresolved areas are:
 
-- semantic `sizeof` versus backend storage size and alignment,
 - array bounds failure behavior,
 - common runtime failure/trap model for dynamic semantic errors,
 - shift edge cases,
