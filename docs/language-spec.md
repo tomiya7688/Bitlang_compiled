@@ -339,7 +339,13 @@ Multi-dimensional C-like syntax may be represented directly:
 Int10x32 matrix[4][4];
 ```
 
-The out-of-bounds failure policy is Bitlang-specific and must not be inherited accidentally from unchecked C indexing.
+Array bounds are part of Bitlang semantics and out-of-range access is always an error.
+
+If an out-of-range index can be proven statically, compilation must fail.
+
+If the index is only known at runtime, lowering must preserve a bounds check before the access. A failed runtime bounds check enters Bitlang's runtime error path; the exact common runtime error/trap mechanism is specified separately.
+
+The C backend must not emit unchecked indexing for an access whose validity has not already been proven.
 
 ## 17. Pointers and references
 
@@ -498,7 +504,6 @@ Module/class ownership needed for symbol identity is encoded into generated name
 
 The remaining decisions that cannot simply inherit C behavior are tracked in [`open-decisions.md`](open-decisions.md). The major unresolved areas are:
 
-- array bounds failure behavior,
 - common runtime failure/trap model for dynamic semantic errors,
 - shift edge cases,
 - raw-pointer invalid-access, provenance, and unsafe-operation boundaries,
