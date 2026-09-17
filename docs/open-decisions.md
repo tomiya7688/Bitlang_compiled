@@ -23,19 +23,7 @@ The language must decide whether the canonical result is a trap, panic-like runt
 
 Compile-time-provable failures remain compile errors where the applicable Bitlang rule requires rejection.
 
-## 2. Shift edge cases
-
-The general C undefined-behavior policy already makes a shift invalid whenever its lowering would rely on C undefined behavior. Such a case is an error unless Bitlang later defines an explicit alternate shift operation.
-
-The remaining decision is the positive Bitlang meaning of valid shifts, including:
-
-- signed right-shift semantics,
-- whether shifting bits out of a fixed-width value is treated as numeric overflow/error or as a separately named bit operation,
-- whether any explicit wrapping/bit-discarding shift operations are provided.
-
-These semantics must be deterministic and must not depend on target-specific C behavior.
-
-## 3. Raw pointer unsafe boundary
+## 2. Raw pointer unsafe boundary
 
 The general C undefined-behavior policy already makes invalid or dangling dereference, and other raw-pointer operations that would rely on C undefined behavior, invalid by default.
 
@@ -53,7 +41,7 @@ An unsafe exception must be explicit and specified; merely being expressible in 
 
 `Ref<T>` safety is already defined separately and must not be weakened by this decision.
 
-## 4. Struct layout and alignment
+## 3. Struct layout and alignment
 
 Ordinary struct syntax may follow C, but deterministic Bitlang semantics still need rules for cases where physical layout is observable.
 
@@ -66,7 +54,7 @@ The specification must decide:
 - interaction with arbitrary-bit-width numeric types,
 - whether layout may change between backend targets when no explicit ABI/layout contract is requested.
 
-## 5. Enum underlying representation
+## 4. Enum underlying representation
 
 C-like enum syntax exists, but Bitlang compiled still needs a deterministic rule for the underlying numeric type when layout or ABI matters.
 
@@ -74,7 +62,7 @@ Options include requiring an explicit canonical Bitlang integer type, inferring 
 
 The backend must not silently choose a different semantic range merely because a C compiler chooses a particular enum representation.
 
-## 6. External ABI and symbol contract
+## 5. External ABI and symbol contract
 
 Internal generated code may use backend-private representations, but interoperability with C or other native code requires explicit rules for:
 
@@ -90,7 +78,7 @@ Internal generated code may use backend-private representations, but interoperab
 
 Internal compilation does not need to use the external ABI representation unless a symbol crosses an ABI boundary.
 
-## 7. Strings and characters
+## 6. Strings and characters
 
 Bitlang defines `Str` and bounded string forms independently from C strings.
 
@@ -107,19 +95,19 @@ Compiled still needs a concrete low-level semantic contract for:
 
 This must be decided before C ABI mapping can be stable.
 
-## 8. Static/module initialization order
+## 7. Static/module initialization order
 
 Static and module lifetime are defined semantically, but initialization/destruction order across declarations and modules still needs a deterministic rule.
 
 The C backend must not simply inherit whichever initialization ordering happens to result from translation-unit or linker behavior when Bitlang observable behavior depends on the order.
 
-## 9. Concurrency and atomics
+## 8. Concurrency and atomics
 
 If Bitlang compiled exposes `volatile`, atomic operations, threads, or shared-memory concurrency, their memory model must be defined explicitly.
 
 Ordinary C syntax may be reused where compatible, but the Bitlang contract must establish which C/C11/C23 memory-model behavior is intentionally inherited and which behavior is restricted.
 
-## 10. Exact Ptr/Ref textual representation
+## 9. Exact Ptr/Ref textual representation
 
 The semantic distinction between `Ptr<T>` and `Ref<T>` is fixed, but Bitlang compiled still needs a final textual representation if both remain visible after lowering.
 
@@ -131,7 +119,7 @@ Possible approaches include:
 
 This is primarily a compiled-language syntax/IR readability decision; it must not change the already-defined semantics.
 
-## 11. Explicit layout / bit-field facility
+## 10. Explicit layout / bit-field facility
 
 Ordinary arbitrary-bit-width numeric values should not be represented as C bit-fields merely because their semantic width is unusual.
 
