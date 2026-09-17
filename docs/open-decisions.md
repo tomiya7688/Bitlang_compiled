@@ -16,7 +16,7 @@ Examples:
 
 - overflow,
 - failed checked cast,
-- future bounds failure,
+- runtime array-bounds failure,
 - other generated semantic checks.
 
 The language must decide whether the canonical result is a trap, panic-like runtime failure, explicit error propagation, configurable policy, or another mechanism.
@@ -25,27 +25,31 @@ Compile-time-provable failures remain compile errors where the applicable Bitlan
 
 ## 2. Shift edge cases
 
-The behavior of shifts still requires explicit Bitlang semantics for cases such as:
+The general C undefined-behavior policy already makes a shift invalid whenever its lowering would rely on C undefined behavior. Such a case is an error unless Bitlang later defines an explicit alternate shift operation.
 
-- negative shift count,
-- shift count equal to the semantic bit width,
-- shift count greater than the semantic bit width,
-- signed right shift,
-- bits shifted out of a fixed-width value.
+The remaining decision is the positive Bitlang meaning of valid shifts, including:
 
-These cases must not inherit C undefined or implementation-defined behavior by accident.
+- signed right-shift semantics,
+- whether shifting bits out of a fixed-width value is treated as numeric overflow/error or as a separately named bit operation,
+- whether any explicit wrapping/bit-discarding shift operations are provided.
 
-## 3. Raw pointer invalid-access semantics
+These semantics must be deterministic and must not depend on target-specific C behavior.
 
-`Ptr<T>` intentionally permits low-level pointer operations, but the exact boundary between compile-time rejection, runtime checking, and intentionally unsafe behavior still needs to be fixed.
+## 3. Raw pointer unsafe boundary
+
+The general C undefined-behavior policy already makes invalid or dangling dereference, and other raw-pointer operations that would rely on C undefined behavior, invalid by default.
+
+`Ptr<T>` still intentionally exists for low-level programming, so the remaining decision is which useful operations receive explicit Bitlang unsafe/backend-specific semantics.
 
 This includes:
 
-- invalid or dangling dereference,
-- pointer arithmetic outside the valid object/range,
+- pointer arithmetic and its permitted object/range boundaries,
 - ordering/comparison of unrelated pointers,
 - integer-to-pointer and pointer-to-integer conversion,
-- provenance/aliasing rules.
+- provenance/aliasing rules,
+- whether selected operations can be explicitly marked unsafe and, if so, what exact contract they receive.
+
+An unsafe exception must be explicit and specified; merely being expressible in C is not enough.
 
 `Ref<T>` safety is already defined separately and must not be weakened by this decision.
 
