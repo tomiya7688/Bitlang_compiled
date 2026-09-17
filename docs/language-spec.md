@@ -148,7 +148,19 @@ Operand types must already satisfy Bitlang's explicit compatibility rules. C's i
 
 Bitlang compiled must not depend on C's unspecified operand evaluation order. When side effects make order observable, lowering must sequence them explicitly using statements and compiler-generated temporaries before C emission. See [`semantic-lowering.md`](semantic-lowering.md).
 
-Shift edge cases remain a separate Bitlang semantic decision and must not inherit C undefined or implementation-defined behavior accidentally.
+Shift operators act on the value's fixed semantic bit width rather than on a C carrier width.
+
+For a value of semantic width `W`, the shift count must satisfy `0 <= count < W`. A statically provable invalid count is a compile error; a dynamically determined count must be checked before the operation and becomes a runtime error when invalid.
+
+`value << count` shifts the fixed-width bit representation left, inserts zero bits on the low side, and discards bits shifted beyond the high end.
+
+`value >> count` shifts right. Unsigned values use a logical right shift with zero fill. Signed values use a deterministic arithmetic right shift that preserves the sign by filling from the sign side.
+
+Bits discarded by either shift do not themselves produce numeric overflow. Shift is a bit-representation operation, not shorthand for checked multiplication or division by a power of two. Arithmetic that requires numeric overflow checking must use the corresponding arithmetic operation.
+
+The result retains the original semantic numeric type, including its bit width, radix, and signedness. No C integer promotion is introduced.
+
+A C backend must reproduce these semantics explicitly and must not rely on C undefined behavior or implementation-defined signed-right-shift behavior.
 
 ## 7. Increment and decrement
 
@@ -519,7 +531,6 @@ This policy does not automatically adopt C implementation-defined behavior eithe
 The remaining decisions that cannot simply inherit C behavior are tracked in [`open-decisions.md`](open-decisions.md). The major unresolved areas are:
 
 - common runtime failure/trap model for dynamic semantic errors,
-- shift edge cases,
 - raw-pointer invalid-access, provenance, and unsafe-operation boundaries,
 - observable struct layout/alignment and explicit packed layout,
 - deterministic enum underlying representation,
