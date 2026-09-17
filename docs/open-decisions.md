@@ -6,27 +6,7 @@ This document lists only decisions that cannot be inherited mechanically from or
 
 C-compatible syntax and behavior do not need a separate Bitlang compiled decision unless they conflict with Bitlang semantics.
 
-## 1. `sizeof` / storage size semantics
-
-Bitlang numeric bit width and backend storage width are intentionally distinct.
-
-Example:
-
-```text
-Int10x24
-```
-
-may be stored by a portable C backend in a 32-bit carrier while remaining a 24-bit semantic integer.
-
-A decision is still required for what `sizeof(Int10x24)` means inside Bitlang compiled:
-
-- semantic size (24 bits / 3 bytes),
-- selected backend storage size (for example 4 bytes),
-- or a separation into semantic-size and storage-size operators.
-
-The same issue applies to alignment and composite layouts.
-
-## 2. Array bounds failure
+## 1. Array bounds failure
 
 Fixed-size arrays can use C-like syntax, but Bitlang compiled still needs a rule for an out-of-range index when the compiler cannot prove validity.
 
@@ -34,7 +14,7 @@ Possible policies include mandatory runtime checking, an explicit unsafe access 
 
 This must not be inherited accidentally from unchecked C indexing.
 
-## 3. Runtime failure model
+## 2. Runtime failure model
 
 Bitlang already defines cases that are errors, including numeric overflow by default and invalid conversions.
 
@@ -51,7 +31,7 @@ The language must decide whether the canonical result is a trap, panic-like runt
 
 Compile-time-provable failures remain compile errors where the applicable Bitlang rule requires rejection.
 
-## 4. Shift edge cases
+## 3. Shift edge cases
 
 The behavior of shifts still requires explicit Bitlang semantics for cases such as:
 
@@ -63,7 +43,7 @@ The behavior of shifts still requires explicit Bitlang semantics for cases such 
 
 These cases must not inherit C undefined or implementation-defined behavior by accident.
 
-## 5. Raw pointer invalid-access semantics
+## 4. Raw pointer invalid-access semantics
 
 `Ptr<T>` intentionally permits low-level pointer operations, but the exact boundary between compile-time rejection, runtime checking, and intentionally unsafe behavior still needs to be fixed.
 
@@ -77,7 +57,7 @@ This includes:
 
 `Ref<T>` safety is already defined separately and must not be weakened by this decision.
 
-## 6. Struct layout and alignment
+## 5. Struct layout and alignment
 
 Ordinary struct syntax may follow C, but deterministic Bitlang semantics still need rules for cases where physical layout is observable.
 
@@ -90,7 +70,7 @@ The specification must decide:
 - interaction with arbitrary-bit-width numeric types,
 - whether layout may change between backend targets when no explicit ABI/layout contract is requested.
 
-## 7. Enum underlying representation
+## 6. Enum underlying representation
 
 C-like enum syntax exists, but Bitlang compiled still needs a deterministic rule for the underlying numeric type when layout or ABI matters.
 
@@ -98,7 +78,7 @@ Options include requiring an explicit canonical Bitlang integer type, inferring 
 
 The backend must not silently choose a different semantic range merely because a C compiler chooses a particular enum representation.
 
-## 8. External ABI and symbol contract
+## 7. External ABI and symbol contract
 
 Internal generated code may use backend-private representations, but interoperability with C or other native code requires explicit rules for:
 
@@ -114,7 +94,7 @@ Internal generated code may use backend-private representations, but interoperab
 
 Internal compilation does not need to use the external ABI representation unless a symbol crosses an ABI boundary.
 
-## 9. Strings and characters
+## 8. Strings and characters
 
 Bitlang defines `Str` and bounded string forms independently from C strings.
 
@@ -131,19 +111,19 @@ Compiled still needs a concrete low-level semantic contract for:
 
 This must be decided before C ABI mapping can be stable.
 
-## 10. Static/module initialization order
+## 9. Static/module initialization order
 
 Static and module lifetime are defined semantically, but initialization/destruction order across declarations and modules still needs a deterministic rule.
 
 The C backend must not simply inherit whichever initialization ordering happens to result from translation-unit or linker behavior when Bitlang observable behavior depends on the order.
 
-## 11. Concurrency and atomics
+## 10. Concurrency and atomics
 
 If Bitlang compiled exposes `volatile`, atomic operations, threads, or shared-memory concurrency, their memory model must be defined explicitly.
 
 Ordinary C syntax may be reused where compatible, but the Bitlang contract must establish which C/C11/C23 memory-model behavior is intentionally inherited and which behavior is restricted.
 
-## 12. Exact Ptr/Ref textual representation
+## 11. Exact Ptr/Ref textual representation
 
 The semantic distinction between `Ptr<T>` and `Ref<T>` is fixed, but Bitlang compiled still needs a final textual representation if both remain visible after lowering.
 
@@ -155,7 +135,7 @@ Possible approaches include:
 
 This is primarily a compiled-language syntax/IR readability decision; it must not change the already-defined semantics.
 
-## 13. Explicit layout / bit-field facility
+## 12. Explicit layout / bit-field facility
 
 Ordinary arbitrary-bit-width numeric values should not be represented as C bit-fields merely because their semantic width is unusual.
 
