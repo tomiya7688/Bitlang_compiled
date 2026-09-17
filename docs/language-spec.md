@@ -6,9 +6,11 @@ Bitlang compiled is a C-like low-level language positioned between `Bitlang prep
 
 The baseline rule is simple: when ordinary C syntax and semantics can be reused without conflicting with Bitlang compiled requirements, they are reused directly.
 
-This document initially records the C-compatible surface. Bitlang compiled-specific restrictions and extensions are added explicitly as they are decided.
+This document records the C-compatible surface and the Bitlang-specific rules that must survive lowering.
 
 A foundational exception is the numeric type system: Bitlang compiled inherits Bitlang's canonical numeric type model, including integer and floating-point types, instead of redefining numeric semantics around C primitive types. See [`numeric-types.md`](numeric-types.md).
+
+Bitlang-specific ownership, lifetime, property, reference, class/module, and functional lowering rules are defined in [`semantic-lowering.md`](semantic-lowering.md). Remaining non-C decisions are tracked in [`open-decisions.md`](open-decisions.md).
 
 ## 1. Translation unit
 
@@ -25,6 +27,8 @@ Blocks use braces:
 }
 ```
 
+Bitlang source preprocessing has already completed before this stage. Bitlang preprocessor functions are not part of Bitlang compiled semantics.
+
 ## 2. Comments
 
 C-style comments are accepted.
@@ -37,7 +41,7 @@ C-style comments are accepted.
 
 ## 3. Identifiers
 
-Identifiers use the ordinary C-like form: letters, digits, and `_`, with the first character not being a digit.
+Identifiers use the ordinary C-like lexical form: letters, digits, and `_`, with the first character not being a digit.
 
 ```c
 value
@@ -45,9 +49,13 @@ player_hp
 _temp2
 ```
 
-Compiler-generated identifiers are not required to be pleasant for humans to read. They may encode ownership, scope, type, or source information as necessary.
+Semantic identifier identity remains case-insensitive as inherited from Bitlang Preprocessed. `_` remains significant.
 
-The exact identifier normalization and case rules for Bitlang compiled remain a Bitlang compiled-specific specification item and are not inherited blindly from C.
+Therefore capitalization alone must not create a distinct Bitlang compiled symbol. Compiler-generated output should use one deterministic canonical spelling, and C backend name mangling must avoid collisions when emitting into C's case-sensitive identifier namespace.
+
+String and character contents remain case-sensitive and are not subject to identifier normalization.
+
+Compiler-generated identifiers are not required to be pleasant for humans to read. They may encode module/class ownership, scope, type, source information, or other data required for deterministic symbol identity.
 
 ## 4. Variables
 
@@ -113,7 +121,9 @@ value /= 2;
 value %= 2;
 ```
 
-Compound assignment is syntactic sugar for a lower-level assignment operation and may be normalized by the compiler.
+Compound assignment may be normalized into explicit assignment and operation form.
+
+Compiler-generated compiled output is permitted to prefer the already-expanded form inherited from Bitlang Preprocessed rather than reintroducing source-level sugar.
 
 ## 6. Arithmetic and comparison operators
 
@@ -136,11 +146,13 @@ Bitwise and logical operators are also written in the C form:
 
 Operand types must already satisfy Bitlang's explicit compatibility rules. C's implicit integer promotions and target-dependent conversion rules do not apply.
 
-Shift details and expression evaluation order remain Bitlang compiled-specific semantics and will be defined explicitly rather than inherited accidentally from C.
+Bitlang compiled must not depend on C's unspecified operand evaluation order. When side effects make order observable, lowering must sequence them explicitly using statements and compiler-generated temporaries before C emission. See [`semantic-lowering.md`](semantic-lowering.md).
+
+Shift edge cases remain a separate Bitlang semantic decision and must not inherit C undefined or implementation-defined behavior accidentally.
 
 ## 7. Increment and decrement
 
-C-style increment and decrement syntax is accepted where defined for the type:
+C-style increment and decrement syntax may be accepted by a Bitlang compiled parser where defined for the type:
 
 ```c
 i++;
@@ -149,7 +161,7 @@ i--;
 --i;
 ```
 
-The compiler may normalize these into ordinary arithmetic assignments during lowering or optimization.
+However, Bitlang source and canonical preprocessing do not rely on increment/decrement value-expression semantics. Compiler-generated compiled output may normalize mutation into ordinary explicit arithmetic assignment and need not emit these forms.
 
 ## 8. Functions
 
@@ -174,11 +186,13 @@ Function prototypes use the same form:
 Int10x32 add(Int10x32 a, Int10x32 b);
 ```
 
-High-level concepts such as methods are expected to be lowered before or while producing Bitlang compiled. For example, an instance method may become an ordinary function with an explicit object pointer.
+High-level methods are lowered into ordinary functions with explicit receiver/object representation where needed.
 
 ```c
 void Player_damage(struct Player* self, Int10x32 amount);
 ```
+
+Captured functions/closures must use an explicit environment representation before backend emission. See [`semantic-lowering.md`](semantic-lowering.md).
 
 ## 9. Return
 
@@ -228,7 +242,7 @@ default:
 }
 ```
 
-Fallthrough behavior and any restrictions on it will be defined explicitly in the Bitlang compiled semantic rules.
+C-compatible fallthrough behavior may be reused unless a later Bitlang-specific restriction requires explicit fallthrough annotation or diagnostics.
 
 ## 12. Loops
 
@@ -287,6 +301,10 @@ player_ptr->hp
 
 Bitlang high-level classes may be lowered into one or more `struct` definitions plus ordinary functions.
 
+Nested struct values do not need to be flattened field-by-field. Struct preservation is an acceptable default lowering. Full flattening is an optimization only when layout, aliasing, and observable behavior are preserved.
+
+Physical struct layout and alignment remain separate decisions when they are observable or cross an ABI boundary.
+
 ## 15. enum
 
 C-style enumeration syntax is part of the baseline surface.
@@ -299,7 +317,7 @@ enum State {
 };
 ```
 
-The exact underlying representation and whether it must always be explicit will be defined separately.
+The deterministic underlying Bitlang numeric representation remains to be defined separately when enum range, storage, or ABI is observable.
 
 ## 16. Arrays
 
@@ -321,25 +339,23 @@ Multi-dimensional C-like syntax may be represented directly:
 Int10x32 matrix[4][4];
 ```
 
-Bounds semantics are not assumed to be identical to C and will be specified explicitly.
+The out-of-bounds failure policy is Bitlang-specific and must not be inherited accidentally from unchecked C indexing.
 
-## 17. Pointers
+## 17. Pointers and references
 
-Pointer syntax follows C where pointers are allowed.
+C-like pointer-shaped low-level representation may be used where appropriate.
 
-```c
-Int10x32* ptr;
-struct Player* player;
-```
+Bitlang `Ptr<T>` and `Ref<T>` remain semantically distinct until their guarantees have been discharged by lowering.
 
-Address-of and dereference use the C forms:
+`Ptr<T>` is the raw low-level pointer form. Its resolved semantics may permit null, reassignment, pointer arithmetic, and raw-address operations.
 
-```c
-ptr = &value;
-value = *ptr;
-```
+`Ref<T>` is the safe reference form. It is non-null, cannot participate in pointer arithmetic, cannot be rebound after binding, and must not outlive its referent.
 
-Pointer arithmetic, lifetime rules, invalid pointer behavior, aliasing, and other memory-safety semantics are intentionally not inherited wholesale from C. These are core Bitlang compiled-specific specification areas.
+A C backend may eventually represent both with pointer-shaped storage, but it must not reintroduce an operation that violates the already-validated `Ref<T>` guarantees.
+
+The exact textual spelling used for Ptr versus Ref inside canonical compiled output remains a separate syntax decision.
+
+Raw-pointer invalid-access/provenance behavior remains a separate semantic decision.
 
 ## 18. Function pointers
 
@@ -349,7 +365,7 @@ Function pointer representation may use C-compatible syntax where required for d
 Int10x32 (*operation)(Int10x32, Int10x32);
 ```
 
-The precise allowed forms will be restricted as necessary to keep parsing, analysis, and backend translation deterministic.
+Captured closures require an explicit environment in addition to a callable target and are not represented as a bare C function pointer unless no capture state is required.
 
 ## 19. typedef
 
@@ -359,31 +375,29 @@ A C-compatible `typedef` form may be used for low-level aliases.
 typedef Uint10x32 CounterType;
 ```
 
-Bitlang compiled may later place stricter limits on aliases to ensure that the resolved underlying type remains easy to inspect.
+Aliases must not erase the resolved semantic type information required for validation or backend lowering.
 
 ## 20. const
 
-`const` uses C-like placement and syntax where appropriate.
+`const` uses C-like placement and syntax where appropriate, but its Bitlang semantics are stronger than C `const`.
 
 ```c
 const Int10x32 value = 10;
-const Int10x32* ptr;
-Int10x32* const ptr2 = other;
 ```
 
-Exact mutability semantics are defined by Bitlang compiled, not merely delegated to a C compiler.
+Bitlang `Const` means the semantic value remains fixed after initialization. For aggregates or objects, mutation through another alias is not permitted merely because the C backend type system could express such an alias.
+
+C `const` may be emitted as part of backend representation, but the compiler must already have enforced the stronger Bitlang invariant. See [`semantic-lowering.md`](semantic-lowering.md).
 
 ## 21. static and storage-related declarations
 
-C-style `static` syntax is available as a baseline representation for internal storage duration or linkage concepts.
+When `static` represents Bitlang static retention, it means storage/lifetime retention and does not implicitly mean C internal linkage.
 
 ```c
 static Int10x32 counter;
-static void helper(void) {
-}
 ```
 
-The complete linkage model will be specified separately.
+Linkage/export visibility is a separate semantic concern and must be lowered independently. A C backend must not hide a symbol solely because its Bitlang value has static lifetime.
 
 ## 22. Explicit casts
 
@@ -401,14 +415,14 @@ Representation-changing pulse operations remain semantically distinct from casts
 
 ## 23. sizeof
 
-A C-compatible `sizeof` form is retained where useful for low-level representation and C translation.
+A C-compatible `sizeof` form may be retained syntactically:
 
 ```c
 sizeof(Int10x32)
 sizeof(value)
 ```
 
-Whether all `sizeof` expressions must be compile-time resolvable will be defined separately.
+However, Bitlang semantic bit width may differ from backend storage/carrier width. Therefore the exact meaning of `sizeof` for types such as `Int10x24`, and its relationship to backend storage size and alignment, remains a Bitlang-specific decision. See [`open-decisions.md`](open-decisions.md).
 
 ## 24. C-compatible lowering principle
 
@@ -432,35 +446,58 @@ void Player_damage(struct Player* self, Int10x32 amount) {
 }
 ```
 
-The C backend then maps canonical Bitlang numeric types to C representations that preserve their bit width and required semantics.
+The C backend then maps canonical Bitlang types and validated properties to C representations that preserve their semantics.
+
+A defined Bitlang operation must not be translated into C in a way whose correctness depends on C undefined behavior. When direct C is insufficient, the backend must use checks, helpers, carrier representations, explicit control flow, or another defined lowering strategy.
 
 The exact compiler-generated identifier names are an implementation concern and need not be optimized for human readability.
 
-## 25. Intentionally unresolved C differences
+## 25. Property and state lowering
 
-The following areas must still be specified by Bitlang compiled itself and must not simply inherit C behavior by accident:
+Bitlang Preprocessed contains the final resolved semantic property state. Bitlang compiled does not need to preserve every property name textually after its constraints have been validated and lowered.
 
-- backend representation of canonical floating-point types where a C primitive is insufficient,
-- expression evaluation order,
+Important inherited rules include:
+
+- read, write, and reassignment capability remain independent during validation;
+- ownership, borrow state, lifetime, copy/move capability, move state, release policy/capability/state, initialization, nullability, optionality, and const state must not be guessed from C defaults;
+- `Auto_release` ownership must become explicit release behavior on applicable exit paths unless ownership was transferred or release is otherwise no longer required;
+- `Moved`, `Released`, and `Uninitialized` states must not survive as ordinary valid reads/releases in emitted code;
+- absence and null are separate, so `Optional nullable T` must preserve distinct absent, present-null, and present-non-null states where reachable;
+- analysis-only metadata may be removed once the required low-level behavior and safety constraints have been established.
+
+Detailed rules are in [`semantic-lowering.md`](semantic-lowering.md) and [`borrow-state-lowering.md`](borrow-state-lowering.md).
+
+## 26. High-level construct elimination
+
+Bitlang compiled is procedural and low-level. The C backend must not be responsible for reconstructing high-level language meaning.
+
+Before backend emission:
+
+- class methods become ordinary functions with explicit receiver representation;
+- dynamic dispatch becomes explicit call targets/tables where required;
+- closures become an explicit callable target plus explicit environment representation;
+- pattern matching becomes ordinary control flow;
+- sum/variant-like values receive an explicit low-level representation;
+- unresolved source-level generic/currying/preprocessor syntax does not remain.
+
+Module/class ownership needed for symbol identity is encoded into generated names or explicit symbol metadata.
+
+## 27. Remaining Bitlang-specific decisions
+
+The remaining decisions that cannot simply inherit C behavior are tracked in [`open-decisions.md`](open-decisions.md). The major unresolved areas are:
+
+- semantic `sizeof` versus backend storage size and alignment,
+- array bounds failure behavior,
+- common runtime failure/trap model for dynamic semantic errors,
 - shift edge cases,
-- pointer arithmetic,
-- pointer lifetime and ownership,
-- aliasing,
-- null representation and null access,
-- array bounds behavior,
-- struct layout and alignment,
-- enum representation,
-- linkage and symbol visibility,
-- undefined and implementation-defined behavior outside already-defined Bitlang semantics,
-- volatile semantics,
-- atomic operations and concurrency,
-- preprocessor availability,
-- unions,
-- bit-fields,
-- variable length arrays,
-- `goto`,
-- variadic functions,
-- C ABI interoperability,
-- canonical numeric type lowering where radix, overflow, precision, or other Bitlang semantics require more than a primitive C type.
+- raw-pointer invalid-access, provenance, and unsafe-operation boundaries,
+- observable struct layout/alignment and explicit packed layout,
+- deterministic enum underlying representation,
+- external C/native ABI and symbol contract,
+- Bitlang string/character low-level representation,
+- static/module initialization and destruction order,
+- concurrency/atomic memory model,
+- exact canonical Ptr/Ref textual representation,
+- exact-layout / bit-field facility for protocols, hardware, and ABI-specific layouts.
 
-Until these areas are explicitly defined, similarity to C syntax does not imply identical C semantics.
+Until one of these areas is explicitly defined, similarity to C syntax does not imply that C undefined or implementation-defined behavior becomes Bitlang semantics.
