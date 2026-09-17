@@ -500,7 +500,21 @@ Before backend emission:
 
 Module/class ownership needed for symbol identity is encoded into generated names or explicit symbol metadata.
 
-## 27. Remaining Bitlang-specific decisions
+## 27. C undefined-behavior policy
+
+Bitlang compiled does not inherit C undefined behavior as ordinary language behavior.
+
+If an operation would require the generated C program to enter undefined behavior, that operation is an error by default.
+
+This includes cases that can be proven statically and cases that only become invalid for particular runtime values. Static violations are compile errors. Dynamic violations must be guarded by generated checks when the operation is otherwise permitted to execute.
+
+An exception may exist only when the behavior is intentionally useful for low-level programming and Bitlang compiled explicitly defines an unsafe or backend-specific operation for it. Such an exception must be opt-in and documented; accidental reliance on C undefined behavior is never valid lowering.
+
+Therefore, the C backend may not use undefined behavior as an optimization assumption for a Bitlang operation whose semantics require a defined result or defined error.
+
+This policy does not automatically adopt C implementation-defined behavior either. Where implementation-defined C behavior is observable and Bitlang has not explicitly adopted it, Bitlang compiled must either define its own behavior, lower through a deterministic helper/representation, or reject the operation.
+
+## 28. Remaining Bitlang-specific decisions
 
 The remaining decisions that cannot simply inherit C behavior are tracked in [`open-decisions.md`](open-decisions.md). The major unresolved areas are:
 
@@ -516,4 +530,4 @@ The remaining decisions that cannot simply inherit C behavior are tracked in [`o
 - exact canonical Ptr/Ref textual representation,
 - exact-layout / bit-field facility for protocols, hardware, and ABI-specific layouts.
 
-Until one of these areas is explicitly defined, similarity to C syntax does not imply that C undefined or implementation-defined behavior becomes Bitlang semantics.
+Until one of these areas is explicitly defined, similarity to C syntax does not imply that C implementation-defined behavior becomes Bitlang semantics. C undefined behavior is already rejected by the general policy above unless an explicit Bitlang unsafe/backend-specific exception is defined.
